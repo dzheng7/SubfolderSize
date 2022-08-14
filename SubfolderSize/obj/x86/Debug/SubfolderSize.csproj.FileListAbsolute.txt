@@ -1,0 +1,9 @@
+C:\Dev\SubfolderSize\SubfolderSize\bin\Debug\SubfolderSize.exe
+C:\Dev\SubfolderSize\SubfolderSize\bin\Debug\SubfolderSize.pdb
+C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.Form1.resources
+C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.Properties.Resources.resources
+C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.csproj.GenerateResource.Cache
+C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.exe
+C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.pdb
+C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.Test.resources
+C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.csprojResolveAssemblyReference.cache
