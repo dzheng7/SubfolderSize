@@ -9,6 +9,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Windows.Forms;
 using System.Threading;
+using System.Collections;
 
 namespace SubfolderSize 
 {
@@ -41,6 +42,9 @@ namespace SubfolderSize
             //MessageBox.Show("1");
             InitializeComponent();
             this.AcceptButton = startButton;
+            int totalWidth = listView1.ClientSize.Width;
+            listView1.Columns[0].Width = (int)(totalWidth * 0.25);
+            listView1.Columns[1].Width = (int)(totalWidth * 0.75);
             //textBox1.Location = new Point(3, 3);
             //browseButton.Location = new Point(this.Size.Width - 185, 6);
             //textBox1.Size = new Size(browseButton.Location.X - 9, textBox1.Size.Height);
@@ -53,16 +57,19 @@ namespace SubfolderSize
             //MessageBox.Show("2");
             this.AcceptButton = startButton;
             InitializeComponent();
+            int totalWidth = listView1.ClientSize.Width;
+            listView1.Columns[0].Width = (int)(totalWidth * 0.25);
+            listView1.Columns[1].Width = (int)(totalWidth * 0.75);
             textBox1.Text = path;
             if(dir == ">")
             {
-                comboBox1.SelectedIndex = comboBox1.FindStringExact("Big to Small");
+                comboBox1.SelectedIndex = comboBox1.FindStringExact("Large to Small");
                 //Or High to Low
                 //Or Descending
             }
             else if (dir == "<")
             {
-                comboBox1.SelectedIndex = comboBox1.FindStringExact("Small to Big");
+                comboBox1.SelectedIndex = comboBox1.FindStringExact("Small to Large");
             }
             else
             {
@@ -98,7 +105,8 @@ namespace SubfolderSize
         {
             textBox2.Text = "";
             //label2.Text = "";
-            richTextBox1.Text = "";
+            //richTextBox1.Text = "";
+            listView1.Items.Clear();
             textBox1.Text = "";
             comboBox1.ResetText();
             textBox2.BorderStyle = BorderStyle.None;
@@ -112,6 +120,7 @@ namespace SubfolderSize
 
         private void startButton_Click(object sender, EventArgs e)
         {
+            listView1.Items.Clear();
             if (Directory.Exists(folderPath))
             {
                 int byteDim = 0;
@@ -132,14 +141,16 @@ namespace SubfolderSize
                 {
                     folderPath += "/";
                 }
-                richTextBox1.Text = "Size:              Folder: \n";
-                string[] subfolders = Directory.GetDirectories(folderPath);
+                //richTextBox1.Text = "Size:              Folder: \n";
+
+
+                /*string[] subfolders = Directory.GetDirectories(folderPath);
                 int[] subfolderSizes = new int[subfolders.Length];
                 double[] subfolderSize = new double[subfolders.Length];
                 int[] multiplier = new int[subfolderSize.Length];
                 long tempSize = 0;
                 for (int i = 0; i < subfolders.Length; i++)
-                {//C:/Daniel/College
+                {
                     tempSize = DirSize(new DirectoryInfo(subfolders[i]));
 
                     subfolderSize[i] = tempSize;
@@ -155,55 +166,47 @@ namespace SubfolderSize
                 {
                     folderList = subfolders;
                 }
-                for (int m = 0; m < sortedSizes.Length; m++)
+                
+                 */
+
+
+                var subfolders = new List<KeyValuePair<string, long>>();
+                foreach(var dir in Directory.EnumerateDirectories(folderPath))
                 {
+                    long size = DirSize(dir);
+                    subfolders.Add(new KeyValuePair<string, long>(dir, size));
+                }
+                var sortedSubfolders = subfolders.OrderByDescending(x => x.Value).ToList();
+
+                
+
+                for (int m = 0; m < sortedSubfolders.Count; m++) {
                     byteDim = 0;
-                    double size = sortedSizes[m];
+                    double originalSize = sortedSubfolders[m].Value;
+                    double size = sortedSubfolders[m].Value;
+                    var filePath = sortedSubfolders[m].Key;
                     while (size > 1023)
                     {
                         size /= 1024;
                         byteDim++;
                     }
+                    
                     //byteDim += multiplier[m];
+                    string sizeText = "";
                     if (size < 10)
-                        richTextBox1.Text += "      ";
+                        sizeText += "      ";
                     else if (size < 100)
-                        richTextBox1.Text += "    ";
+                        sizeText += "    ";
                     else if (size < 1000)
-                        richTextBox1.Text += "  ";
+                        sizeText += "  ";
                     //richTextBox1.Text += Math.Round(size, 2).ToString();
-                    richTextBox1.Text += size.ToString("F");
+                    sizeText += size.ToString("F");
                     string str = bitDim(byteDim);
-                    richTextBox1.Text += str;
-                    /*if (byteDim < 1)
-                        richTextBox1.Text += "   ";
-                    else if (byteDim == 1)
-                        richTextBox1.Text += " K";
-                    else if (byteDim == 2)
-                        richTextBox1.Text += " M";
-                    else if (byteDim == 3)
-                        richTextBox1.Text += " G";
-                    else if (byteDim == 4)
-                        richTextBox1.Text += " T";
-                    else if (byteDim == 5)
-                        richTextBox1.Text += " P";
-                    else
-                        richTextBox1.Text += " _";*/
-
-                    /*if (byteDim < 1)
-                        richTextBox1.Text += " K";
-                    else if (byteDim == 1)
-                        richTextBox1.Text += " M";
-                    else if (byteDim == 2)
-                        richTextBox1.Text += " G";
-                    else if (byteDim == 3)
-                        richTextBox1.Text += " T";
-                    else if (byteDim == 4)
-                        richTextBox1.Text += " P";
-                    else
-                        richTextBox1.Text += " _";*/
-                    richTextBox1.Text += "B";
-                    richTextBox1.Text += "      " + folderList[m] + "\n";
+                    sizeText += str;
+                    sizeText += "B";
+                    var item = new ListViewItem(new[] { sizeText, filePath });
+                    item.Tag = originalSize;
+                    listView1.Items.Add(item);
                 }
             }
             else
@@ -212,6 +215,13 @@ namespace SubfolderSize
                 MessageBox.Show("Please use a legitimate folder");
             }
             folderList = new string[0];
+        }
+
+        private void listView1_Resize(object sender, EventArgs e)
+        {
+            //int totalWidth = listView1.ClientSize.Width;
+            //listView1.Columns[0].Width = (int)(totalWidth * 0.25);
+            //listView1.Columns[1].Width = (int)(totalWidth * 0.75);
         }
 
         #region HelperFunc
@@ -304,6 +314,23 @@ namespace SubfolderSize
 
             }
             return size;  
+        }
+        
+        public static long DirSize(string path)
+        {
+            long size = 0;
+            foreach(string file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    FileInfo fi = new FileInfo(file);
+                    size += fi.Length;
+                } catch (UnauthorizedAccessException e)
+                {
+
+                }
+            }
+            return size;
         }
 
         private static string bitDim(int numDiv)
@@ -456,45 +483,46 @@ namespace SubfolderSize
             return temp;
         }
 
+
         private void newButton_Click(object sender, EventArgs e)
         {
-            if (!Directory.Exists(richTextBox1.SelectedText))
+
+
+            //figure out opening a new window based on file path
+
+
+
+            /*if (!Directory.Exists(richTextBox1.SelectedText))
             {
                 Process.Start(Application.ExecutablePath);
             }
             else
             {
-                //textBox2.Text = "Calculating";
-                //MessageBox.Show("hi");
-                /*ProcessStartInfo startInfo = new ProcessStartInfo();
-                startInfo.FileName = Application.ExecutablePath;
-                startInfo.Arguments = richTextBox1.SelectedText + " " + sortDir;
-                Process.Start(startInfo);*/
-                //MessageBox.Show("1");
-                //FilePath p = new FilePath(richTextBox1.SelectedText.Trim();
                 string temp = "\"" + richTextBox1.SelectedText.Trim() + "\"";
-                //string temp = richTextBox1.SelectedText.Trim();
-                //        + " " + sortDir;
                 Process.Start(Application.ExecutablePath, temp + " " + sortDir);
-                //textBox2.Text = "";
-                //MessageBox.Show("2");
-            }
+            }*/
         }
+
+
 
         private void Form1_SizeChanged(object sender, EventArgs e)
         {
             //textBox1.Location = new Point(3, 3);
             //browseButton.Location = new Point(this.Size.Width - 185, 6);
             //textBox1.Size = new Size(browseButton.Location.X - 9, textBox1.Size.Height);
+
+            //int totalWidth = listView1.ClientSize.Width;
+            //listView1.Columns[0].Width = (int)(totalWidth * 0.25);
+            //listView1.Columns[1].Width = (int)(totalWidth * 0.75);
         }
 
         private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (comboBox1.SelectedItem == "Big to Small")
+            if (comboBox1.SelectedItem == "Large to Small")
             {
                 sortDir = ">";
             }
-            else if (comboBox1.SelectedItem == "Small to Big")
+            else if (comboBox1.SelectedItem == "Small to Large")
             {
                 sortDir = "<";
             }
@@ -535,7 +563,7 @@ namespace SubfolderSize
                 {
                     folderPath += "/";
                 }
-                richTextBox1.Text = "Size:              Folder: \n";
+                //richTextBox1.Text = "Size:              Folder: \n";
                 string[] subfolders = Directory.GetDirectories(folderPath);
                 int[] subfolderSizes = new int[subfolders.Length];
                 double[] subfolderSize = new double[subfolders.Length];
@@ -572,7 +600,7 @@ namespace SubfolderSize
                         byteDim++;
                     }
                     //byteDim += multiplier[m];
-                    if (size < 10)
+                   /* if (size < 10)
                         richTextBox1.Text += "      ";
                     else if (size < 100)
                         richTextBox1.Text += "    ";
@@ -582,35 +610,8 @@ namespace SubfolderSize
                     richTextBox1.Text += size.ToString("F");
                     string str = bitDim(byteDim);
                     richTextBox1.Text += str;
-                    /*if (byteDim < 1)
-                        richTextBox1.Text += "   ";
-                    else if (byteDim == 1)
-                        richTextBox1.Text += " K";
-                    else if (byteDim == 2)
-                        richTextBox1.Text += " M";
-                    else if (byteDim == 3)
-                        richTextBox1.Text += " G";
-                    else if (byteDim == 4)
-                        richTextBox1.Text += " T";
-                    else if (byteDim == 5)
-                        richTextBox1.Text += " P";
-                    else
-                        richTextBox1.Text += " _";*/
-
-                    /*if (byteDim < 1)
-                        richTextBox1.Text += " K";
-                    else if (byteDim == 1)
-                        richTextBox1.Text += " M";
-                    else if (byteDim == 2)
-                        richTextBox1.Text += " G";
-                    else if (byteDim == 3)
-                        richTextBox1.Text += " T";
-                    else if (byteDim == 4)
-                        richTextBox1.Text += " P";
-                    else
-                        richTextBox1.Text += " _";*/
                     richTextBox1.Text += "B";
-                    richTextBox1.Text += "      " + folderList[m] + "\n";
+                    richTextBox1.Text += "      " + folderList[m] + "\n";*/
                 }
             }
             else
@@ -641,5 +642,207 @@ namespace SubfolderSize
 
         }
         #endregion
+
+        private void listView1_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            var hit = listView1.HitTest(e.Location);
+
+            if (hit.Item != null)
+            {
+                int subItemIndex = hit.Item.SubItems.IndexOf(hit.SubItem);
+
+                if (subItemIndex == 1) // file path column
+                {
+                    // Get the bounds of the clicked subitem
+                    Rectangle cellBounds = hit.SubItem.Bounds;
+
+                    // Create a temporary TextBox
+                    TextBox tb = new TextBox();
+                    tb.Bounds = cellBounds;
+                    tb.Text = hit.SubItem.Text;
+                    tb.ReadOnly = true;
+                    tb.BorderStyle = BorderStyle.None;
+
+                    // Add to ListView
+                    listView1.Controls.Add(tb);
+
+                    // Select all text for easy copy
+                    tb.Focus();
+                    tb.SelectAll();
+
+                    // Remove TextBox when focus is lost
+                    tb.LostFocus += (s, ev) =>
+                    {
+                        listView1.Controls.Remove(tb);
+                        tb.Dispose();
+                    };
+                }
+            }
+
+        }
+
+        private int sortColumn = -1; 
+        private bool sortDescending = true;
+
+        private void listView1_ColumnClick(object sender, ColumnClickEventArgs e)
+        {
+            if(e.Column == sortColumn)
+            {
+                sortDescending = !sortDescending;
+            }
+            else
+            {
+                sortColumn = e.Column;
+
+                if (e.Column == 0)
+                    sortDescending = false;
+                else if (e.Column == 1)
+                    sortDescending = true;
+
+            }
+            listView1.ListViewItemSorter = new ListViewItemComparer(e.Column, sortDescending);
+            listView1.Sort();
+
+        }
+
+        //RIGHT CLICK CONTEXT MENU: COPY ITEM AND OPEN FILE IN WINDOWS EXPLORER
+        private void OpenPath()
+        {
+            if (listView1.SelectedItems.Count > 0)
+            {
+                string filePath = listView1.SelectedItems[0].SubItems[1].Text;
+                System.Diagnostics.Process.Start(filePath);
+            }
+
+        }
+
+        private void CopyPath()
+        {
+            if (listView1.SelectedItems.Count > 0)
+            {
+                string filePath = listView1.SelectedItems[0].SubItems[1].Text;
+                Clipboard.SetText(filePath);
+            }
+
+        }
+
+        private void RunPath()
+        {
+            string filePath = listView1.SelectedItems[0].SubItems[1].Text;
+            string temp = "\"" + filePath + "\"";
+            Process.Start(Application.ExecutablePath, temp + " " + sortDir);
+        }
+
+        private void listView1_MouseDown(object sender, MouseEventArgs e)
+        {
+
+        }
+
+        private void listView1_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                var hit = listView1.HitTest(e.Location);
+
+                if (hit.Item != null)
+                {
+                    int subItemIndex = hit.Item.SubItems.IndexOf(hit.SubItem);
+
+                    if (subItemIndex == 1) // right column (file path)
+                    {
+                        // Select the item
+                        listView1.SelectedItems.Clear();
+                        hit.Item.Selected = true;
+
+                        // Show context menu at mouse position
+                        contextMenuStrip1.Show(listView1, e.Location);
+                    }
+                }
+            }
+
+        }
+
+        private void copyPathToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (listView1.SelectedItems.Count > 0)
+            {
+                string filePath = listView1.SelectedItems[0].SubItems[1].Text;
+                Clipboard.SetText(filePath);
+            }
+        }
+
+        private void runThisPathToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string filePath = listView1.SelectedItems[0].SubItems[1].Text;
+            string temp = "\"" + filePath + "\"";
+            Process.Start(Application.ExecutablePath, temp + " " + sortDir);
+        }
+
+        private void openPathToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (listView1.SelectedItems.Count > 0)
+            {
+                string filePath = listView1.SelectedItems[0].SubItems[1].Text;
+                System.Diagnostics.Process.Start(filePath);
+            }
+        }
     }
+    public class ListViewItemComparer : IComparer
+    {
+        private int col;
+        private bool desc;
+
+        public ListViewItemComparer(int column, bool descending)
+        {
+            col = column;
+            desc = descending;
+        }
+
+        public int Compare(object x, object y)
+        {
+            var itemA = (ListViewItem)x;
+            var itemB = (ListViewItem)y;
+
+            int result;
+
+            if (col == 0) // left column: alphabetical
+            {
+                double valA = itemA.Tag is double ? (double)itemA.Tag : 0.0;
+                double valB = itemB.Tag is double ? (double)itemB.Tag : 0.0;
+                result = valA.CompareTo(valB);
+
+            }
+            else if (col == 1) // right column: file path
+            {
+                result = string.Compare(itemA.SubItems[col].Text, itemB.SubItems[col].Text);
+            }
+            else // fallback
+            {
+                result = string.Compare(itemA.SubItems[col].Text, itemB.SubItems[col].Text);
+            }
+
+            return desc ? -result : result;
+
+        }
+    }
+    public class CustomListView : ListView
+    {
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            var info = this.HitTest(e.Location);
+            if (info.Item != null)
+            {
+                int subItemIndex = info.Item.SubItems.IndexOf(info.SubItem);
+
+                if (subItemIndex == 0)
+                {
+                    // Left column clicked → skip base logic (no highlight)
+                    return;
+                }
+            }
+            base.OnMouseDown(e); // allow normal selection otherwise
+        }
+    }
+
+
 }
