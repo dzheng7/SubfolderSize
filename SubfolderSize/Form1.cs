@@ -1,15 +1,19 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.IO;
 using System.Diagnostics;
-using System.Windows.Forms;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.Remoting.Messaging;
+using System.Text;
 using System.Threading;
-using System.Collections;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace SubfolderSize 
 {
@@ -37,6 +41,8 @@ namespace SubfolderSize
         }
         string folderPath = "";
         string sortDir = ">";
+        CancellationTokenSource cts;
+        private bool isRunning = false;
         public Form1() 
         {
             //MessageBox.Show("1");
@@ -61,20 +67,7 @@ namespace SubfolderSize
             listView1.Columns[0].Width = (int)(totalWidth * 0.25);
             listView1.Columns[1].Width = (int)(totalWidth * 0.75);
             textBox1.Text = path;
-            if(dir == ">")
-            {
-                comboBox1.SelectedIndex = comboBox1.FindStringExact("Large to Small");
-                //Or High to Low
-                //Or Descending
-            }
-            else if (dir == "<")
-            {
-                comboBox1.SelectedIndex = comboBox1.FindStringExact("Small to Large");
-            }
-            else
-            {
-                comboBox1.SelectedIndex = comboBox1.FindStringExact("None");
-            }
+
             startButton_Click(this, new EventArgs());
         }
 
@@ -103,13 +96,18 @@ namespace SubfolderSize
 
         private void clearButton_Click(object sender, EventArgs e)
         {
-            textBox2.Text = "";
+            totalSizeBox.Text = "";
             //label2.Text = "";
             //richTextBox1.Text = "";
             listView1.Items.Clear();
             textBox1.Text = "";
-            comboBox1.ResetText();
-            textBox2.BorderStyle = BorderStyle.None;
+            totalSizeBox.BorderStyle = BorderStyle.None;
+            progressBar1.Visible = false;
+            //startButton.Enabled = true;
+            totalSizeBox.Text = "";
+            listView1.Items.Clear(); 
+            startButton.Text = "Start";
+
         }
 
         private void textBox2_TextChanged(object sender, EventArgs e)
@@ -118,110 +116,136 @@ namespace SubfolderSize
         }
         #endregion
 
-        private void startButton_Click(object sender, EventArgs e)
+        private async void startButton_Click(object sender, EventArgs e)
         {
-            listView1.Items.Clear();
-            if (Directory.Exists(folderPath))
+            if (!isRunning)
             {
-                int byteDim = 0;
-                double folderSize = DirSize(new DirectoryInfo(folderPath));
-                while (folderSize > 1023)
-                {
-                    byteDim++;
-                    folderSize /= 1024;
-                }
-                textBox2.Text = "Total size: ";
-                textBox2.Text += folderSize.ToString("F");
-                textBox2.Text += bitDim(byteDim) + "B";
-                textBox2.BorderStyle = BorderStyle.Fixed3D;
-                byteDim = 0;
-                //richTextBox1.Text = folderPath;
-                //MessageBox.Show(folderPath);
-                if (folderPath.Substring(folderPath.Length - 1).Trim() != "/")
-                {
-                    folderPath += "/";
-                }
-                //richTextBox1.Text = "Size:              Folder: \n";
+                isRunning = true;
+                startButton.Text = "Stop";
 
+                cts = new CancellationTokenSource();
+                var token = cts.Token;  
+                progressBar1.Visible = true;
+                progressBar1.Style = ProgressBarStyle.Marquee;
 
-                /*string[] subfolders = Directory.GetDirectories(folderPath);
-                int[] subfolderSizes = new int[subfolders.Length];
-                double[] subfolderSize = new double[subfolders.Length];
-                int[] multiplier = new int[subfolderSize.Length];
-                long tempSize = 0;
-                for (int i = 0; i < subfolders.Length; i++)
-                {
-                    tempSize = DirSize(new DirectoryInfo(subfolders[i]));
+                listView1.Items.Clear();
 
-                    subfolderSize[i] = tempSize;
-                }
-                sizeListD = subfolderSize;
-                nameList = subfolders;
-                double[] sortedSizes = subfolderSize;
-                if (sortDir != "=")
+                // startButton.Enabled = false;
+                clearButton.Enabled = false;
+                totalSizeBox.Text = "";
+                if (Directory.Exists(folderPath))
                 {
-                    sortedSizes = sizeSortD(subfolderSize, subfolders, sortDir);
+
+                    int byteDim = 0;
+                    byteDim = 0;
+                    //richTextBox1.Text = folderPath;
+                    //MessageBox.Show(folderPath);
+                    if (folderPath.Substring(folderPath.Length - 1).Trim() != "/")
+                    {
+                        folderPath += "/";
+                    }
+                    try
+                    {
+                        await Task.Run(() =>
+                        {
+                            long folderSize = 0;
+                            // double folderSize = DirSize(new DirectoryInfo(folderPath));
+                            // var subfolders = new List<KeyValuePair<string, long>>();
+                            string input = Path.GetFullPath(folderPath);
+                            int count = 0;
+                            foreach (var dir in Directory.EnumerateDirectories(input))
+                            {
+                                long size = DirSize(dir);
+                                folderSize += size;
+                                if (token.IsCancellationRequested)
+                                {
+                                    return;
+                                }
+                                this.BeginInvoke(new Action(() =>
+                                {
+                                    if (token.IsCancellationRequested)
+                                    {
+                                        return;
+                                    }
+                                    totalSizeBox.Text = "Total size: ";
+                                    totalSizeBox.Text += getSizeString(folderSize, false);
+                                    totalSizeBox.BorderStyle = BorderStyle.Fixed3D;
+                                }));
+                                long originalSize = size;
+                                string sizeText = getSizeString(size, true);
+                                this.Invoke(new Action(() =>
+                                {
+                                    var item = new ListViewItem(new[] { sizeText, dir });
+                                    item.Tag = originalSize;
+                                    listView1.Items.Add(item);
+
+                                    if (count > 9)
+                                    {
+                                        listView1.ListViewItemSorter = new ListViewItemComparer(0, true);
+                                        listView1.Sort();
+                                    }
+                                }));
+                                count++;
+                            }
+                        });
+                    } catch (OperationCanceledException) { }
+
                 }
                 else
                 {
-                    folderList = subfolders;
+                    //MessageBox.Show(folderPath);
+                    MessageBox.Show("Please use a legitimate folder");
                 }
-                
-                 */
 
+                folderList = new string[0];
+                progressBar1.Visible = false;
+                // startButton.Enabled = true;
+                clearButton.Enabled = true; 
+                isRunning = false;
+                startButton.Text = "Start";
 
-                var subfolders = new List<KeyValuePair<string, long>>();
-                foreach(var dir in Directory.EnumerateDirectories(folderPath))
-                {
-                    long size = DirSize(dir);
-                    subfolders.Add(new KeyValuePair<string, long>(dir, size));
-                }
-                var sortedSubfolders = subfolders.OrderByDescending(x => x.Value).ToList();
-
-                
-
-                for (int m = 0; m < sortedSubfolders.Count; m++) {
-                    byteDim = 0;
-                    double originalSize = sortedSubfolders[m].Value;
-                    double size = sortedSubfolders[m].Value;
-                    var filePath = sortedSubfolders[m].Key;
-                    while (size > 1023)
-                    {
-                        size /= 1024;
-                        byteDim++;
-                    }
-                    
-                    //byteDim += multiplier[m];
-                    string sizeText = "";
-                    if (size < 10)
-                        sizeText += "      ";
-                    else if (size < 100)
-                        sizeText += "    ";
-                    else if (size < 1000)
-                        sizeText += "  ";
-                    //richTextBox1.Text += Math.Round(size, 2).ToString();
-                    sizeText += size.ToString("F");
-                    string str = bitDim(byteDim);
-                    sizeText += str;
-                    sizeText += "B";
-                    var item = new ListViewItem(new[] { sizeText, filePath });
-                    item.Tag = originalSize;
-                    listView1.Items.Add(item);
-                }
             }
             else
             {
-                //MessageBox.Show(folderPath);
-                MessageBox.Show("Please use a legitimate folder");
+                cts.Cancel();
+                isRunning = false;
+                progressBar1.Visible = false;
+                startButton.Text = "Start";
             }
-            folderList = new string[0];
+
         }
 
+        private string getSizeString(long size, bool spaces)
+        {
+            int byteDim = 0;
+            while (size > 1023)
+            {
+                size /= 1024;
+                byteDim++;
+            }
+            string sizeText = "";
+            if (spaces)
+            {
+                if (size < 10)
+                    sizeText += "      ";
+                else if (size < 100)
+                    sizeText += "    ";
+                else if (size < 1000)
+                    sizeText += "  ";
+            }
+            sizeText += size.ToString("F");
+            string str = bitDim(byteDim);
+            sizeText += str;
+            sizeText += "B";
+            if (size < 0)
+                sizeText = "N/A";
+            return sizeText;
+        }
         private void listView1_Resize(object sender, EventArgs e)
         {
-            //int totalWidth = listView1.ClientSize.Width;
-            //listView1.Columns[0].Width = (int)(totalWidth * 0.25);
-            //listView1.Columns[1].Width = (int)(totalWidth * 0.75);
+            int totalWidth = listView1.ClientSize.Width;
+            int width = listView1.Columns[0].Width;
+            listView1.Columns[1].Width = totalWidth - width;
         }
 
         #region HelperFunc
@@ -319,17 +343,53 @@ namespace SubfolderSize
         public static long DirSize(string path)
         {
             long size = 0;
-            foreach(string file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+            bool error = false;
+
+            /*foreach(string file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
             {
                 try
                 {
                     FileInfo fi = new FileInfo(file);
                     size += fi.Length;
-                } catch (UnauthorizedAccessException e)
+                }
+                catch (UnauthorizedAccessException e)
                 {
-
+                    error = true;
+                }
+                catch (PathTooLongException p)
+                {
+                    error = true;
+                }
+            }*/
+            try
+            {
+                foreach (var file in Directory.GetFiles(path))
+                {
+                    try
+                    {
+                        size += new FileInfo(file).Length;
+                    }
+                    catch { }
                 }
             }
+            catch { }
+
+            try
+            {
+                foreach (var dir in Directory.GetDirectories(path))
+                {
+                    try
+                    {
+                        size += DirSize(dir);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+
+
+            if ((int)size == 0 && error)
+                return -1;
             return size;
         }
 
@@ -501,6 +561,7 @@ namespace SubfolderSize
                 string temp = "\"" + richTextBox1.SelectedText.Trim() + "\"";
                 Process.Start(Application.ExecutablePath, temp + " " + sortDir);
             }*/
+            Process.Start(Application.ExecutablePath);
         }
 
 
@@ -514,22 +575,6 @@ namespace SubfolderSize
             //int totalWidth = listView1.ClientSize.Width;
             //listView1.Columns[0].Width = (int)(totalWidth * 0.25);
             //listView1.Columns[1].Width = (int)(totalWidth * 0.75);
-        }
-
-        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (comboBox1.SelectedItem == "Large to Small")
-            {
-                sortDir = ">";
-            }
-            else if (comboBox1.SelectedItem == "Small to Large")
-            {
-                sortDir = "<";
-            }
-            else if (comboBox1.SelectedItem == "None")
-            {
-                sortDir = "=";
-            }
         }
 
         #endregion
@@ -552,10 +597,10 @@ namespace SubfolderSize
                     byteDim++;
                     folderSize /= 1024;
                 }
-                textBox2.Text = "Total size: ";
-                textBox2.Text += folderSize.ToString("F");
-                textBox2.Text += bitDim(byteDim) + "B";
-                textBox2.BorderStyle = BorderStyle.Fixed3D;
+                totalSizeBox.Text = "Total size: ";
+                totalSizeBox.Text += folderSize.ToString("F");
+                totalSizeBox.Text += bitDim(byteDim) + "B";
+                totalSizeBox.BorderStyle = BorderStyle.Fixed3D;
                 byteDim = 0;
                 //richTextBox1.Text = folderPath;
                 //MessageBox.Show(folderPath);
@@ -657,7 +702,7 @@ namespace SubfolderSize
                     Rectangle cellBounds = hit.SubItem.Bounds;
 
                     // Create a temporary TextBox
-                    TextBox tb = new TextBox();
+                    System.Windows.Forms.TextBox tb = new System.Windows.Forms.TextBox();
                     tb.Bounds = cellBounds;
                     tb.Text = hit.SubItem.Text;
                     tb.ReadOnly = true;
@@ -686,20 +731,16 @@ namespace SubfolderSize
 
         private void listView1_ColumnClick(object sender, ColumnClickEventArgs e)
         {
-            if(e.Column == sortColumn)
+            if (e.Column == sortColumn)
             {
                 sortDescending = !sortDescending;
             }
             else
             {
                 sortColumn = e.Column;
-
-                if (e.Column == 0)
-                    sortDescending = false;
-                else if (e.Column == 1)
-                    sortDescending = true;
-
+                sortDescending = false;
             }
+
             listView1.ListViewItemSorter = new ListViewItemComparer(e.Column, sortDescending);
             listView1.Sort();
 
@@ -786,6 +827,16 @@ namespace SubfolderSize
                 System.Diagnostics.Process.Start(filePath);
             }
         }
+
+        private void listView1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void tableLayoutPanel2_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
     }
     public class ListViewItemComparer : IComparer
     {
@@ -804,11 +855,10 @@ namespace SubfolderSize
             var itemB = (ListViewItem)y;
 
             int result;
-
             if (col == 0) // left column: alphabetical
             {
-                double valA = itemA.Tag is double ? (double)itemA.Tag : 0.0;
-                double valB = itemB.Tag is double ? (double)itemB.Tag : 0.0;
+                long valA = itemA.Tag is long ? (long)itemA.Tag : 0L;
+                long valB = itemB.Tag is long ? (long)itemB.Tag : 0L;
                 result = valA.CompareTo(valB);
 
             }
@@ -825,7 +875,8 @@ namespace SubfolderSize
 
         }
     }
-    public class CustomListView : ListView
+    // System.Windows.Forms.VisualStyles.VisualStyleElement.ListView
+    public class CustomListView : System.Windows.Forms.ListView
     {
         protected override void OnMouseDown(MouseEventArgs e)
         {

@@ -8,3 +8,4 @@ C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.pdb
 C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.Test.resources
 C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.csproj.AssemblyReference.cache
 C:\Dev\SubfolderSize\SubfolderSize\obj\x86\Debug\SubfolderSize.csproj.CoreCompileInputs.cache
+C:\Dev\SubfolderSize\SubfolderSize\bin\Debug\SubfolderSize.exe.config
